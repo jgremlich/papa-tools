@@ -8,6 +8,9 @@ import os, glob
 import shutil
 import utilities as amu
 
+import Facade.facade as facade
+import DAOs.getItemsDAO as dao
+
 CHECKOUT_WINDOW_WIDTH = 340
 CHECKOUT_WINDOW_HEIGHT = 575
 
@@ -16,35 +19,26 @@ def maya_main_window():
 	return sip.wrapinstance(long(ptr), QObject)
 
 class CheckoutContext:
-	def __init__(self, parent, name, folder, asset_folder, can_create):
+	def __init__(self, parent, name, can_create):
 		# name of this checkout context (i.e. Model, Rig, Animation)
 		self.name = name
-		# pathname to folder location (same as os.environ variable)
-		self.folder = folder
-		# folder location for the actual scene file to checkout
-		self.asset_folder = asset_folder;
 		# enable a New/Create button for this context
 		self.can_create = can_create
 		# intialize self.tree (the widget)
-		self.get_items(parent)
+		self.get_items()
 		# no filtering, to start out with
 		self.cur_filter = ''
 
-	def get_items(self, parent):
-		# creates a QTreeWidget with the items to checkout
-		self.tree = QListWidget()
-		#self.tree.setColumnCount(1)
-		self.tree.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-		folders = glob.glob(os.path.join(self.folder, '*'))
-		for f in folders:
-			bname = os.path.basename(f)
-			item = QListWidgetItem(bname)
-			item.setText(bname)
-			self.tree.addItem(item)
-		self.tree.sortItems(0)
-		self.tree.setSortingEnabled(True)
-		# bind selection handler
-		self.tree.currentItemChanged.connect(parent.set_current_item)
+	def get_items(self):
+		
+		if(self.name == 'Model'):
+			self.tree = facade.getAssets(self)
+		if(self.name == 'Rig'):
+			self.tree = facade.getAssets(self)
+		if(self.name == "Previs"):
+			self.tree = facade.getPrevis(self)
+		if(self.name == "Animation"):
+			self.tree = facade.getShots(self)
 
 	def add_item(self, name):
 		# adds an item to the tree, with the given folder basename
@@ -80,10 +74,10 @@ class CheckoutDialog(QDialog):
 	def __init__(self, parent=maya_main_window()):
 		#Setup the different checkout contexts
 		self.contexts = [
-			CheckoutContext(self, 'Model', os.environ['ASSETS_DIR'], 'model', False),
-			CheckoutContext(self, 'Rig', os.environ['ASSETS_DIR'], 'rig', False),
-			CheckoutContext(self, 'Animation', os.environ['SHOTS_DIR'], 'animation', True),
-			CheckoutContext(self, 'Previs', os.environ['PREVIS_DIR'], 'animation', True)
+			CheckoutContext(self, 'Model', False),
+			CheckoutContext(self, 'Rig', False),
+			CheckoutContext(self, 'Animation', True),
+			CheckoutContext(self, 'Previs', True)
 		]
 
 		#Initialize the GUI
@@ -167,21 +161,10 @@ class CheckoutDialog(QDialog):
 		text, ok = QInputDialog.getText(self, 'New Shot', 'Enter seq_shot (ie: a01)')
 		if ok:
 			text = str(text)
-			if self.context.name == 'Previs':
-				amu.createNewPrevisFolders(self.context.folder, text)
-			else:
-				amu.createNewShotFolders(self.context.folder, text)
-			self.copy_template_animation(text)
+			print "Trying to create" + text
+			facade.newAnimation(self, self.context.name, text)
 			self.context.add_item(text)
 			self.refresh()
-		return
-
-	def copy_template_animation(self, shot_name):
-		template = os.path.join(os.environ['SHOTS_DIR'], 'static/animation/stable/static_animation_stable.mb')
-		if(os.path.exists(template)):
-			dest = os.path.join(self.context.folder, shot_name, 'animation/src/v000/'+shot_name+'_animation.mb')
-			shutil.copyfile(template, dest)
-			print 'copied '+template+' to '+dest
 		return
 	
 	def get_filename(self, parentdir):
@@ -190,7 +173,7 @@ class CheckoutDialog(QDialog):
 	def get_asset_path(self):
 		# returns the path for a single asset
 		asset_name = str(self.current_item.text())
-		return os.path.join(self.context.folder, asset_name, self.context.asset_folder)
+		return facade.getAssetPath(self, asset_name, self.context.name)
 
 	def showIsLockedDialog(self):
 		return cmd.confirmDialog(title = 'Already Unlocked'
