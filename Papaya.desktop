@@ -3,7 +3,7 @@
 Version=1.0
 Type=Application
 Terminal=false
-Icon[en_US]=/usr/autodesk/maya/icons/mayaico.png
+Icon[en_US]=/users/groups/papa/icons/papaya_halo.png
 Name[en_US]=Papaya
 Exec=/groups/ramshorn/ramshorn-tools/project_maya.sh
 Comment[en_US]=Ram's Horn Mari
